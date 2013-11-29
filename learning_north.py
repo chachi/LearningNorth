@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import scipy.misc
 from sklearn import linear_model
-from skimage import color
+from skimage import color, io
 import argparse
 import numpy as np
 import os
@@ -9,6 +9,7 @@ import pandas as pd
 import re
 import sys
 import time
+import matplotlib.pyplot as plt
 
 
 def load_dir(dir_path):
@@ -44,13 +45,28 @@ def features(images):
 from a list of absolute image paths.
 
     """
-    features = np.ndarray([len(images), 1])
-    for idx, img_path in enumerate(images):
-        print "Loading image %d" % idx
-        img = scipy.misc.imread(img_path, flatten=True)
-        features[idx, 0] = img.mean()
+    # Feature list:
+    # - Sum brightness of each row/column
+    features = np.empty([len(images), 0])
 
-    return features
+    brightness_sums = None
+    for idx, img_path in enumerate(images):
+        sys.stdout.write("\rLoading image %d" % idx)
+        sys.stdout.flush()
+
+        # Unfortunately, skimage.io is *much* slower, so we just use scipy
+        #img = io.imread(img_path, as_grey=True, plugin='imread')
+        img = scipy.misc.imread(img_path, flatten=True)
+
+        if brightness_sums is None:
+            brightness_sums = np.zeros((len(images), np.sum(img.shape)))
+
+        mean_lum = img.mean()
+        marginal_lum = np.concatenate((img.sum(0), img.sum(1)))
+        brightness_sums[idx, :] = marginal_lum
+    print ""
+
+    return np.c_[features, brightness_sums]
 
 
 def learn_north(model, train_labels, train_images, test_labels, test_images):
@@ -67,14 +83,11 @@ other images.
     print "Testing against {} images.".format(len(test_labels))
     test_features = features(test_images)
 
-    error = 0.
-    for idx, heading in enumerate(train_labels):
-        y = model.predict(test_features[idx, 0])
-        error += (abs(y - heading) % 360)
+    y = model.predict(test_features)
+    return (abs(y - test_labels) % 360)
 
-    print error/len(train_labels)
 
-if __name__ == '__main__':
+def parse_args():
     parser = argparse.ArgumentParser(description='Learn headings from images.')
     parser.add_argument('-train', nargs='+',
                         help='Directories containing training data')
@@ -84,11 +97,12 @@ if __name__ == '__main__':
                         action="store_true")
     parser.add_argument('--ridge', help='Run a Ridge regression',
                         action="store_true")
+    return parser, parser.parse_args()
 
-    args = parser.parse_args()
-
+if __name__ == '__main__':
+    parser, args = parse_args()
     if args.lasso:
-        model = linear_model.Lasso()
+        model = linear_model.Lasso(max_iter=10000)
     elif args.ridge:
         model = linear_model.Ridge()
     else:
@@ -98,4 +112,10 @@ if __name__ == '__main__':
 
     [train_images, train_labels] = load_images_labels(args.train)
     [test_images, test_labels] = load_images_labels(args.test)
-    learn_north(model, train_labels, train_images, test_labels, test_images)
+    error = learn_north(model,
+                        train_labels, train_images,
+                        test_labels, test_images)
+    plt.scatter(test_labels, error)
+    print "Mean error {}".format(error.mean())
+    print "Median error {}".format(np.median(error))
+    plt.show()
