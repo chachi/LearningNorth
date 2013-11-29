@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import scipy.misc
 from sklearn import linear_model
 from skimage import color
