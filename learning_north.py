@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import scipy.misc
 from sklearn import linear_model
-from skimage import color, io
+from skimage import color, io, transform
 import argparse
 import numpy as np
 import os
@@ -10,7 +10,10 @@ import re
 import sys
 import time
 import matplotlib.pyplot as plt
+from sklearn import cross_validation
 
+
+N_FOLDS=10
 
 def load_dir(dir_path):
     """Load headings and image paths from the given directory.
@@ -57,42 +60,48 @@ from a list of absolute image paths.
         # Unfortunately, skimage.io is *much* slower, so we just use scipy
         #img = io.imread(img_path, as_grey=True, plugin='imread')
         img = scipy.misc.imread(img_path, flatten=True)
+        img /= 255
 
+        thumb = transform.resize(img, np.array(img.shape)/70)
         if brightness_sums is None:
-            brightness_sums = np.zeros((len(images), np.sum(img.shape)))
+            brightness_sums = np.zeros((len(images), np.sum(thumb.shape)))
 
-        mean_lum = img.mean()
-        marginal_lum = np.concatenate((img.sum(0), img.sum(1)))
+        mean_lum = thumb.mean()
+        marginal_lum = np.concatenate((thumb.sum(0), thumb.sum(1)))
         brightness_sums[idx, :] = marginal_lum
+
     print ""
 
     return np.c_[features, brightness_sums]
 
 
-def learn_north(model, train_labels, train_images, test_labels, test_images):
+def learn_north(model, labels, images):
     """Using a given model, learn the correct labels and test against
 other images.
 
     """
 
-    print "Learning north from {} images.".format(len(train_labels))
-    train_features = features(train_images)
+    print "Learning north from {} images.".format(len(labels))
+    print "Performing {}-fold cross validation".format(N_FOLDS)
 
-    model.fit(train_features, train_labels)
+    x = features(images)
+    y = np.cos(np.radians(labels))
 
-    print "Testing against {} images.".format(len(test_labels))
-    test_features = features(test_images)
-
-    y = model.predict(test_features)
-    return (abs(y - test_labels) % 360)
+    # Choose your cross-validation splitting strategy
+    #fold_gen = cross_validation.StratifiedKFold(labels, n_folds=N_FOLDS)
+    #fold_gen = cross_validation.KFold(n=N_FOLDS, n_folds=N_FOLDS)
+    fold_gen = cross_validation.LeaveOneOut(len(y))
+    scores = cross_validation.cross_val_score(model, x, y,
+                                              scoring='mean_squared_error',
+                                              n_jobs=-1,
+                                              cv=fold_gen)
+    return scores
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Learn headings from images.')
-    parser.add_argument('-train', nargs='+',
-                        help='Directories containing training data')
-    parser.add_argument('-test', nargs='+',
-                        help='Directories containing testing data')
+    parser.add_argument('-data', nargs='+',
+                        help='Directories containing data')
     parser.add_argument('--lasso', help='Run a LASSO regression',
                         action="store_true")
     parser.add_argument('--ridge', help='Run a Ridge regression',
@@ -110,12 +119,12 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit(-1)
 
-    [train_images, train_labels] = load_images_labels(args.train)
-    [test_images, test_labels] = load_images_labels(args.test)
-    error = learn_north(model,
-                        train_labels, train_images,
-                        test_labels, test_images)
-    plt.scatter(test_labels, error)
+    [images, labels] = load_images_labels(args.data)
+    error = learn_north(model, labels, images)
+
+    error = np.degrees(error)
+    plt.plot(error, 'ro')
     print "Mean error {}".format(error.mean())
+    print "Std error {}".format(np.std(error))
     print "Median error {}".format(np.median(error))
     plt.show()
