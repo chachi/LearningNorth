@@ -66,7 +66,6 @@ from a list of absolute image paths.
         if brightness_sums is None:
             brightness_sums = np.zeros((len(images), np.sum(thumb.shape)))
 
-        mean_lum = thumb.mean()
         marginal_lum = np.concatenate((thumb.sum(0), thumb.sum(1)))
         brightness_sums[idx, :] = marginal_lum
 
@@ -102,12 +101,15 @@ other images.
                                               n_jobs=-1,
                                               cv=fold_gen)*180
 
+    # Flip the scores and square root to get degree errors
+    errors = np.sqrt(-1*scores)
+
     #loo = cross_validation.LeaveOneOut(len(y))
     #y_vs_err = np.array([ [y[test[0]]*180, err] for (train, test), err in zip(loo, scores)])
     #plt.plot(y_vs_err[:, 0], y_vs_err[:, 1], 'b.')
     #plt.show()
 
-    return scores
+    return errors
 
 
 def parse_args():
