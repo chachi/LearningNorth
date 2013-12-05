@@ -85,16 +85,28 @@ other images.
     print "Performing {}-fold cross validation".format(N_FOLDS)
 
     x = features(images)
-    y = np.cos(np.radians(labels))
+
+    # Keep zero at 0, move 180-360 onto 0-180
+    y = np.abs(np.abs(labels - 180)-180)/180
+
+    #plt.hist(labels)
+    #plt.show()
 
     # Choose your cross-validation splitting strategy
     #fold_gen = cross_validation.StratifiedKFold(labels, n_folds=N_FOLDS)
     #fold_gen = cross_validation.KFold(n=N_FOLDS, n_folds=N_FOLDS)
     fold_gen = cross_validation.LeaveOneOut(len(y))
+    #fold_gen = cross_validation.ShuffleSplit(len(y), random_state=0, n_iter=50)
     scores = cross_validation.cross_val_score(model, x, y,
                                               scoring='mean_squared_error',
                                               n_jobs=-1,
-                                              cv=fold_gen)
+                                              cv=fold_gen)*180
+
+    #loo = cross_validation.LeaveOneOut(len(y))
+    #y_vs_err = np.array([ [y[test[0]]*180, err] for (train, test), err in zip(loo, scores)])
+    #plt.plot(y_vs_err[:, 0], y_vs_err[:, 1], 'b.')
+    #plt.show()
+
     return scores
 
 
@@ -122,7 +134,6 @@ if __name__ == '__main__':
     [images, labels] = load_images_labels(args.data)
     error = learn_north(model, labels, images)
 
-    error = np.degrees(error)
     plt.plot(error, 'ro')
     print "Mean error {}".format(error.mean())
     print "Std error {}".format(np.std(error))
