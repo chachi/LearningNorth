@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import scipy.misc
-from sklearn import linear_model
+from sklearn import linear_model, svm, tree
 from skimage import color, io, transform
 import argparse
 import numpy as np
@@ -64,7 +64,7 @@ from a list of absolute image paths.
 
         thumb = transform.resize(img, np.array(img.shape)/70)
         if brightness_sums is None:
-            brightness_sums = np.zeros((len(images), np.sum(thumb.shape)))
+            brightness_sums = np.zeros((len(images), np.sum(thumb.shape))
 
         marginal_lum = np.concatenate((thumb.sum(0), thumb.sum(1)))
         brightness_sums[idx, :] = marginal_lum
@@ -79,23 +79,24 @@ def learn_north(model, labels, images):
 other images.
 
     """
-
     print "Learning north from {} images.".format(len(labels))
-    print "Performing {}-fold cross validation".format(N_FOLDS)
-
     x = features(images)
-
     # Keep zero at 0, move 180-360 onto 0-180
     y = np.abs(np.abs(labels - 180)-180)/180
 
     #plt.hist(labels)
     #plt.show()
 
+    #######
     # Choose your cross-validation splitting strategy
+    #######
     #fold_gen = cross_validation.StratifiedKFold(labels, n_folds=N_FOLDS)
     #fold_gen = cross_validation.KFold(n=N_FOLDS, n_folds=N_FOLDS)
     fold_gen = cross_validation.LeaveOneOut(len(y))
     #fold_gen = cross_validation.ShuffleSplit(len(y), random_state=0, n_iter=50)
+    if fold_gen == cross_validation.KFold(n=N_FOLDS, n_folds=N_FOLDS):
+        print "Performing {}-fold cross validation".format(N_FOLDS)
+    
     scores = cross_validation.cross_val_score(model, x, y,
                                               scoring='mean_squared_error',
                                               n_jobs=-1,
@@ -105,11 +106,15 @@ other images.
     errors = np.sqrt(-1*scores)
 
     #loo = cross_validation.LeaveOneOut(len(y))
-    #y_vs_err = np.array([ [y[test[0]]*180, err] for (train, test), err in zip(loo, scores)])
+    #y_vs_err = np.array([ [y[test[0]]*180, err] for (train, test), err in zip(fold_gen, scores)])
     #plt.plot(y_vs_err[:, 0], y_vs_err[:, 1], 'b.')
     #plt.show()
 
+<<<<<<< Updated upstream
     return errors
+=======
+    return -scores
+>>>>>>> Stashed changes
 
 
 def parse_args():
@@ -120,14 +125,33 @@ def parse_args():
                         action="store_true")
     parser.add_argument('--ridge', help='Run a Ridge regression',
                         action="store_true")
+    parser.add_argument('--svm_rbf', help='Run an SVM classifier with rbf kernel',
+                        action="store_true")
+    parser.add_argument('--svm_poly', help='Run an SVM classifier with ploynomial kernel (3)', 
+                        action="store_true")
+    parser.add_argument('--svm_lin', help='Run a Linear SVM classifier', 
+                        action="store_true")
+    parser.add_argument('--tree', help='Run a Decision Tree classifier', 
+                        action="store_true")
     return parser, parser.parse_args()
 
 if __name__ == '__main__':
     parser, args = parse_args()
+
+    #Machine Learning Models
+
     if args.lasso:
         model = linear_model.Lasso(max_iter=10000)
     elif args.ridge:
         model = linear_model.Ridge()
+    elif args.svm_rbf:
+        model = svm.SVC(kernel='rbf', gamma=0.7, C=1)
+    elif args.svm_poly:
+        model = svm.SVC(kernel='poly', degree=3, C=1)
+    elif args.svm_lin:
+        model = svm.LinearSVC(C=1)
+    elif args.tree:
+        model = tree.DecisionTreeClasssifier()
     else:
         print "Must specify a learning type."
         parser.print_help()
