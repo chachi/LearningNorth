@@ -40,7 +40,7 @@ and evaluate their performance.
         (ii, ll) = load_dir(os.path.expanduser(d))
         images += ii
         labels = np.r_[labels, ll]
-    return images, labels
+    return images, np.array(labels)
 
 
 def features(images):
@@ -101,6 +101,21 @@ other images.
                                               cv=fold_gen)
     return -scores
 
+def plot_model(model_type, labels, scores, min_label, max_label, bin_width):
+    # Plot:
+    # Histogram of true angle vs. average error
+    # Raw scores
+    # Overlay mean error
+
+    bins = np.arange(min_label, max_label, bin_width)
+    avg_error = np.zeros(bins.shape)
+    for i, bin in enumerate(bins):
+        current = labels >= bin && labels < bin+bin_width
+        avg_error[i] = scores[current].mean()
+    plt.bar(bins, avg_error)
+    plt.title(model_type)
+    plt.plot(scores, 'ro')
+    plt.savefig(model_type+"_plot.eps")
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Learn headings from images.')
@@ -127,31 +142,50 @@ if __name__ == '__main__':
 
     if args.lasso:
         model = linear_model.Lasso(max_iter=10000)
+        model_type = "LASSO"
+        bin_max = 180
+        bin_width = 5
     elif args.ridge:
         model = linear_model.Ridge()
+        model_type = "Ridge"
+        bin_max = 180
+        bin_width = 5
     elif args.svm_rbf:
         model = svm.SVC(kernel='rbf', gamma=0.7, C=1)
+        model_type = "SVM w/ RBF kernel"
+        bin_max = 30 
+        bin_width = 1
     elif args.svm_poly:
         model = svm.SVC(kernel='poly', degree=3, C=1)
+        model_type = "SVM w/ polynomial kernel"
+        bin_max = 30
+        bin_width = 1
     elif args.svm_lin:
         model = svm.LinearSVC(C=1)
+        model_type = "SVM w/ linear kernel"
+        bin_max = 30
+        bin_width = 1
     elif args.tree:
         model = tree.DecisionTreeClassifier()
+        model_type = "Decision Tree"
+        bin_max = 30
+        bin_width = 1
     else:
         print "Must specify a learning type."
         parser.print_help()
         sys.exit(-1)
 
     [images, labels] = load_images_labels(args.data)
-    np.abs(np.abs(labels - 180)-180)
     labels = np.abs(np.abs(labels/12 -180)-180).astype(int)
     print labels
     scores = learn_north(model, labels, images)
     scores = np.sqrt(scores)
     print scores
+    print scores[scores > 1.5*np.median(scores)]
+    print images[scores > 1.5*np.median(scores)]
 
-    plt.plot(scores, 'ro')
+    plot_model(model_type, labels, scores, 0, bin_max, bin_width)
     print "Mean scores {}".format(scores.mean())
     print "Std scores {}".format(np.std(scores))
     print "Median scores {}".format(np.median(scores))
-    plt.show()
+
