@@ -64,7 +64,7 @@ from a list of absolute image paths.
 
         thumb = transform.resize(img, np.array(img.shape)/70)
         if brightness_sums is None:
-            brightness_sums = np.zeros((len(images), np.sum(thumb.shape))
+            brightness_sums = np.zeros((len(images), np.sum(thumb.shape)))
 
         marginal_lum = np.concatenate((thumb.sum(0), thumb.sum(1)))
         brightness_sums[idx, :] = marginal_lum
@@ -94,27 +94,14 @@ other images.
     #fold_gen = cross_validation.KFold(n=N_FOLDS, n_folds=N_FOLDS)
     fold_gen = cross_validation.LeaveOneOut(len(y))
     #fold_gen = cross_validation.ShuffleSplit(len(y), random_state=0, n_iter=50)
-    if fold_gen == cross_validation.KFold(n=N_FOLDS, n_folds=N_FOLDS):
+    if isinstance(fold_gen, cross_validation.KFold):
         print "Performing {}-fold cross validation".format(N_FOLDS)
     
     scores = cross_validation.cross_val_score(model, x, y,
                                               scoring='mean_squared_error',
                                               n_jobs=-1,
                                               cv=fold_gen)*180
-
-    # Flip the scores and square root to get degree errors
-    errors = np.sqrt(-1*scores)
-
-    #loo = cross_validation.LeaveOneOut(len(y))
-    #y_vs_err = np.array([ [y[test[0]]*180, err] for (train, test), err in zip(fold_gen, scores)])
-    #plt.plot(y_vs_err[:, 0], y_vs_err[:, 1], 'b.')
-    #plt.show()
-
-<<<<<<< Updated upstream
-    return errors
-=======
     return -scores
->>>>>>> Stashed changes
 
 
 def parse_args():
@@ -158,10 +145,11 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     [images, labels] = load_images_labels(args.data)
-    error = learn_north(model, labels, images)
+    scores = learn_north(model, labels, images)
+    scores = np.sqrt(scores)
 
-    plt.plot(error, 'ro')
-    print "Mean error {}".format(error.mean())
-    print "Std error {}".format(np.std(error))
-    print "Median error {}".format(np.median(error))
+    plt.plot(scores, 'ro')
+    print "Mean scores {}".format(scores.mean())
+    print "Std scores {}".format(np.std(scores))
+    print "Median scores {}".format(np.median(scores))
     plt.show()
