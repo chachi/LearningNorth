@@ -82,7 +82,7 @@ other images.
     print "Learning north from {} images.".format(len(labels))
     x = features(images)
     # Keep zero at 0, move 180-360 onto 0-180
-    y = np.abs(np.abs(labels - 180)-180)/180
+    y = np.abs(np.abs(labels - 180)-180)
 
     #plt.hist(labels)
     #plt.show()
@@ -100,7 +100,7 @@ other images.
     scores = cross_validation.cross_val_score(model, x, y,
                                               scoring='mean_squared_error',
                                               n_jobs=-1,
-                                              cv=fold_gen)*180
+                                              cv=fold_gen)
     return -scores
 
 
