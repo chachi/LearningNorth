@@ -81,9 +81,7 @@ other images.
     """
     print "Learning north from {} images.".format(len(labels))
     x = features(images)
-    # Keep zero at 0, move 180-360 onto 0-180
-    y = np.abs(np.abs(labels - 180)-180)
-
+    y = labels
     #plt.hist(labels)
     #plt.show()
 
@@ -138,15 +136,19 @@ if __name__ == '__main__':
     elif args.svm_lin:
         model = svm.LinearSVC(C=1)
     elif args.tree:
-        model = tree.DecisionTreeClasssifier()
+        model = tree.DecisionTreeClassifier()
     else:
         print "Must specify a learning type."
         parser.print_help()
         sys.exit(-1)
 
     [images, labels] = load_images_labels(args.data)
+    np.abs(np.abs(labels - 180)-180)
+    labels = np.abs(np.abs(labels/12 -180)-180).astype(int)
+    print labels
     scores = learn_north(model, labels, images)
     scores = np.sqrt(scores)
+    print scores
 
     plt.plot(scores, 'ro')
     print "Mean scores {}".format(scores.mean())
