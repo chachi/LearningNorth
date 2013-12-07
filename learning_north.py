@@ -110,10 +110,12 @@ def plot_model(model_type, labels, scores, min_label, max_label, bin_width):
     bins = np.arange(min_label, max_label, bin_width)
     avg_error = np.zeros(bins.shape)
     for i, bin in enumerate(bins):
-        current = labels >= bin && labels < bin+bin_width
+        current = (labels >= bin) & (labels < bin+bin_width)
         avg_error[i] = scores[current].mean()
     plt.bar(bins, avg_error)
     plt.title(model_type)
+    plt.savefig(model_type+"_bar.eps")
+    plt.figure()
     plt.plot(scores, 'ro')
     plt.savefig(model_type+"_plot.eps")
 
@@ -152,17 +154,17 @@ if __name__ == '__main__':
         bin_width = 5
     elif args.svm_rbf:
         model = svm.SVC(kernel='rbf', gamma=0.7, C=1)
-        model_type = "SVM w/ RBF kernel"
+        model_type = "SVM w RBF kernel"
         bin_max = 30 
         bin_width = 1
     elif args.svm_poly:
         model = svm.SVC(kernel='poly', degree=3, C=1)
-        model_type = "SVM w/ polynomial kernel"
+        model_type = "SVM w polynomial kernel"
         bin_max = 30
         bin_width = 1
     elif args.svm_lin:
         model = svm.LinearSVC(C=1)
-        model_type = "SVM w/ linear kernel"
+        model_type = "SVM w linear kernel"
         bin_max = 30
         bin_width = 1
     elif args.tree:
@@ -182,7 +184,6 @@ if __name__ == '__main__':
     scores = np.sqrt(scores)
     print scores
     print scores[scores > 1.5*np.median(scores)]
-    print images[scores > 1.5*np.median(scores)]
 
     plot_model(model_type, labels, scores, 0, bin_max, bin_width)
     print "Mean scores {}".format(scores.mean())
