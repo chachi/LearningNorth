@@ -74,6 +74,16 @@ from a list of absolute image paths.
     return np.c_[features, brightness_sums]
 
 
+def learn_and_plot(model, labels, images, model_type, orient_type, bin_max, bin_width):
+    scores = learn_north(model, labels, images)
+    scores = np.sqrt(scores)
+    print scores[scores > 1.5*np.median(scores)]
+    plot_model(model_type, orient_type, labels, scores, 0, bin_max, bin_width)
+    print "Mean scores {}".format(scores.mean())
+    print "Std scores {}".format(np.std(scores))
+    print "Median scores {}".format(np.median(scores))
+
+
 def learn_north(model, labels, images):
     """Using a given model, learn the correct labels and test against
 other images.
@@ -101,7 +111,7 @@ other images.
                                               cv=fold_gen)
     return -scores
 
-def plot_model(model_type, labels, scores, min_label, max_label, bin_width):
+def plot_model(model_type, orient_type, labels, scores, min_label, max_label, bin_width):
     # Plot:
     # Histogram of true angle vs. average error
     # Raw scores
@@ -112,12 +122,13 @@ def plot_model(model_type, labels, scores, min_label, max_label, bin_width):
     for i, bin in enumerate(bins):
         current = (labels >= bin) & (labels < bin+bin_width)
         avg_error[i] = scores[current].mean()
+    plt.figure()
     plt.bar(bins, avg_error)
     plt.title(model_type)
-    plt.savefig(model_type+"_bar.eps")
+    plt.savefig(model_type+orient_type+"_bar.eps")
     plt.figure()
     plt.plot(scores, 'ro')
-    plt.savefig(model_type+"_plot.eps")
+    plt.savefig(model_type+orient_type+"_plot.eps")
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Learn headings from images.')
@@ -147,46 +158,60 @@ if __name__ == '__main__':
         model_type = "LASSO"
         bin_max = 180
         bin_width = 5
+        learn_type = "Regression"
     elif args.ridge:
         model = linear_model.Ridge()
         model_type = "Ridge"
         bin_max = 180
         bin_width = 5
+        learn_type = "Regression"
     elif args.svm_rbf:
         model = svm.SVC(kernel='rbf', gamma=0.7, C=1)
         model_type = "SVM w RBF kernel"
         bin_max = 30 
         bin_width = 1
+        learn_type = "Classification"
     elif args.svm_poly:
         model = svm.SVC(kernel='poly', degree=3, C=1)
         model_type = "SVM w polynomial kernel"
         bin_max = 30
         bin_width = 1
+        learn_type = "Classification"
     elif args.svm_lin:
         model = svm.LinearSVC(C=1)
         model_type = "SVM w linear kernel"
         bin_max = 30
         bin_width = 1
+        learn_type = "Classification"
     elif args.tree:
         model = tree.DecisionTreeClassifier()
         model_type = "Decision Tree"
         bin_max = 30
         bin_width = 1
+        learn_type = "Classification"
     else:
         print "Must specify a learning type."
         parser.print_help()
         sys.exit(-1)
 
     [images, labels] = load_images_labels(args.data)
-    labels = np.abs(np.abs(labels/12 -180)-180).astype(int)
-    print labels
-    scores = learn_north(model, labels, images)
-    scores = np.sqrt(scores)
-    print scores
-    print scores[scores > 1.5*np.median(scores)]
 
-    plot_model(model_type, labels, scores, 0, bin_max, bin_width)
-    print "Mean scores {}".format(scores.mean())
-    print "Std scores {}".format(np.std(scores))
-    print "Median scores {}".format(np.median(scores))
+    # Plot North-South orientation 
+    old_labels = labels
+    orient_type = "North-South"
+    #labels = np.abs(np.abs(labels/12-180)-180).astype(int)
+    if learn_type is "Regression":
+        labels = np.degrees(np.arccos(np.cos(np.radians(labels)))).astype(int)
+    else:
+        labels = np.degrees(np.arccos(np.cos(np.radians(labels/12)))).astype(int)
+    learn_and_plot(model, labels, images, model_type, orient_type, bin_max, bin_width)
+    
+    #  Plot East-West orientation
 
+    orient_type = "East-West"
+    labels = old_labels
+    if learn_type is "Regression":
+        labels = np.degrees(np.arcsin(np.sin(np.radians(labels)))).astype(int)
+    else:
+        labels = np.degrees(np.arcsin(np.sin(np.radians(labels/12)))).astype(int)
+    learn_and_plot(model, labels, images, model_type, orient_type, bin_max, bin_width)
