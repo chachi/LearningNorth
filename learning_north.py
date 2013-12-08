@@ -213,7 +213,7 @@ def run(x, model, model_type, learn_type):
         y = north_south_labels(labels)
         opts = ns_regression_opts
     else:
-        y = north_south_labels(labels/N_CLASSES).floor()
+        y = np.floor(north_south_labels(labels/N_CLASSES))
         opts = ns_classification_opts
 
     orientation_type = "North-South"
@@ -224,7 +224,7 @@ def run(x, model, model_type, learn_type):
         y = east_west_labels(labels)
         opts = ew_regression_opts
     else:
-        y = east_west_labels(labels/N_CLASSES).floor()
+        y = np.floor(east_west_labels(labels/N_CLASSES))
         opts = ew_classification_opts
 
     orientation_type = "East-West"
