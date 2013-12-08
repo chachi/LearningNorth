@@ -177,12 +177,12 @@ def plot_model(model_type, orientation_type, labels, scores, options):
 
 def east_west_labels(labels):
     """Takes 0-360 labels and returns -90-90"""
-    return np.degrees(np.arcsin(np.sin(np.radians(labels))))
+    return np.degrees(np.arcsin(np.sin(np.radians(labels)))).astype(int)
 
 
 def north_south_labels(labels):
     """Takes 0-360 labels and returns 0-180"""
-    return np.degrees(np.arccos(np.cos(np.radians(labels))))
+    return np.degrees(np.arccos(np.cos(np.radians(labels)))).astype(int)
 
 
 def run(x, model, model_type, learn_type):
