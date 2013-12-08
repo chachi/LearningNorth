@@ -1,19 +1,62 @@
 #!/usr/bin/env python
 import scipy.misc
 from sklearn import linear_model, svm, tree
-from skimage import color, io, transform
+from skimage import transform
 import argparse
 import numpy as np
 import os
 import pandas as pd
-import re
 import sys
-import time
 import matplotlib.pyplot as plt
 from sklearn import cross_validation
 
 
-N_FOLDS=10
+class LearningOptions:
+    def __init__(self, bin_min, bin_max, bin_width):
+        self.bin_min = bin_min
+        self.bin_max = bin_max
+        self.bin_width = bin_width
+
+REGRESSION = "Regression"
+CLASSIFICATION = "Classification"
+
+ns_regression_opts = LearningOptions(0, 180, 5)
+ew_regression_opts = LearningOptions(-90, 90, 5)
+
+ns_classification_opts = LearningOptions(0, 30, 1)
+ew_classification_opts = LearningOptions(-15, 15, 1)
+
+MODELS = {
+    'lasso': linear_model.Lasso(max_iter=10000),
+    'ridge': linear_model.Ridge(),
+    'svm_rbf': svm.SVC(kernel='rbf', gamma=0.7, C=1),
+    'svm_poly': svm.SVC(kernel='poly', degree=3, C=1),
+    'svm_linear': svm.LinearSVC(C=1),
+    'tree': tree.DecisionTreeClassifier()
+}
+
+TITLES = {
+    'lasso': 'LASSO',
+    'ridge': 'Ridge',
+    'svm_rbf': 'SVM with RBF Kernel',
+    'svm_poly': 'SVM with Polynomial Kernel',
+    'svm_linear': 'Linear SVM',
+    'tree': 'Decision tree'
+}
+
+TYPES = {
+    'lasso': REGRESSION,
+    'ridge': REGRESSION,
+    'svm_rbf': CLASSIFICATION,
+    'svm_poly': CLASSIFICATION,
+    'svm_linear': CLASSIFICATION,
+    'tree': CLASSIFICATION
+}
+
+
+N_FOLDS = 10
+N_CLASSES = 12
+
 
 def load_dir(dir_path):
     """Load headings and image paths from the given directory.
@@ -43,7 +86,7 @@ and evaluate their performance.
     return images, np.array(labels)
 
 
-def features(images):
+def compute_features(images):
     """Compute an ndarray of features of size num-images x num-features
 from a list of absolute image paths.
 
@@ -74,26 +117,23 @@ from a list of absolute image paths.
     return np.c_[features, brightness_sums]
 
 
-def learn_and_plot(model, labels, images, model_type, orient_type, bin_max, bin_width):
-    scores = learn_north(model, labels, images)
+def learn_and_plot(model, x, y, model_type, orientation_type, options):
+    scores = evaluate_learning(model, x, y)
     scores = np.sqrt(scores)
-    print scores[scores > 1.5*np.median(scores)]
-    plot_model(model_type, orient_type, labels, scores, 0, bin_max, bin_width)
+
+    plot_model(model_type, orientation_type, y, scores, options)
+
     print "Mean scores {}".format(scores.mean())
     print "Std scores {}".format(np.std(scores))
     print "Median scores {}".format(np.median(scores))
 
 
-def learn_north(model, labels, images):
+def evaluate_learning(model, x, y):
     """Using a given model, learn the correct labels and test against
 other images.
 
     """
-    print "Learning north from {} images.".format(len(labels))
-    x = features(images)
-    y = labels
-    #plt.hist(labels)
-    #plt.show()
+    print "Learning north from {} images.".format(len(y))
 
     #######
     # Choose your cross-validation splitting strategy
@@ -101,117 +141,120 @@ other images.
     #fold_gen = cross_validation.StratifiedKFold(labels, n_folds=N_FOLDS)
     #fold_gen = cross_validation.KFold(n=N_FOLDS, n_folds=N_FOLDS)
     fold_gen = cross_validation.LeaveOneOut(len(y))
-    #fold_gen = cross_validation.ShuffleSplit(len(y), random_state=0, n_iter=50)
+    #fold_gen = cross_validation.ShuffleSplit(len(y), random_state=0,
+    #                                         n_iter=50)
     if isinstance(fold_gen, cross_validation.KFold):
         print "Performing {}-fold cross validation".format(N_FOLDS)
-    
+
     scores = cross_validation.cross_val_score(model, x, y,
                                               scoring='mean_squared_error',
                                               n_jobs=-1,
                                               cv=fold_gen)
     return -scores
 
-def plot_model(model_type, orient_type, labels, scores, min_label, max_label, bin_width):
+
+def plot_model(model_type, orientation_type, labels, scores, options):
     # Plot:
     # Histogram of true angle vs. average error
     # Raw scores
     # Overlay mean error
-
-    bins = np.arange(min_label, max_label, bin_width)
+    bins = np.arange(options.bin_min, options.bin_max, options.bin_width)
     avg_error = np.zeros(bins.shape)
     for i, bin in enumerate(bins):
-        current = (labels >= bin) & (labels < bin+bin_width)
+        current = (labels >= bin) & (labels < bin + options.bin_width)
         avg_error[i] = scores[current].mean()
+
     plt.figure()
-    plt.bar(bins, avg_error)
+    plt.bar(left=bins, height=avg_error, width=options.bin_width)
     plt.title(model_type)
-    plt.savefig(model_type+orient_type+"_bar.eps")
+    plt.savefig('_'.join((model_type, orientation_type, 'bar.eps')))
+
     plt.figure()
     plt.plot(scores, 'ro')
-    plt.savefig(model_type+orient_type+"_plot.eps")
+    plt.savefig('_'.join((model_type, orientation_type, 'plot.eps')))
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Learn headings from images.')
     parser.add_argument('-data', nargs='+',
                         help='Directories containing data')
     parser.add_argument('--lasso', help='Run a LASSO regression',
-                        action="store_true")
+                        action='store_true')
     parser.add_argument('--ridge', help='Run a Ridge regression',
-                        action="store_true")
-    parser.add_argument('--svm_rbf', help='Run an SVM classifier with rbf kernel',
-                        action="store_true")
-    parser.add_argument('--svm_poly', help='Run an SVM classifier with ploynomial kernel (3)', 
-                        action="store_true")
-    parser.add_argument('--svm_lin', help='Run a Linear SVM classifier', 
-                        action="store_true")
-    parser.add_argument('--tree', help='Run a Decision Tree classifier', 
-                        action="store_true")
+                        action='store_true')
+    parser.add_argument('--svm_rbf',
+                        help='Run SVM classifier with rbf kernel',
+                        action='store_true')
+    parser.add_argument('--svm_poly',
+                        help='Run SVM classifier with ploynomial kernel (3)',
+                        action='store_true')
+    parser.add_argument('--svm_lin', help='Run a Linear SVM classifier',
+                        action='store_true')
+    parser.add_argument('--tree', help='Run a Decision Tree classifier',
+                        action='store_true')
+    parser.add_argument('--all', help='Run all classifiers and regressions.',
+                        action='store_true')
     return parser, parser.parse_args()
+
+
+def east_west_labels(labels):
+    """Takes 0-360 labels and returns -90-90"""
+    return np.degrees(np.arcsin(np.sin(np.radians(labels))))
+
+
+def north_south_labels(labels):
+    """Takes 0-360 labels and returns 0-180"""
+    return np.degrees(np.arccos(np.cos(np.radians(labels))))
+
+
+def run(x, model, model_type, learn_type):
+    # Plot North-South orientation
+    if learn_type is REGRESSION:
+        y = north_south_labels(labels)
+        opts = ns_regression_opts
+    else:
+        y = north_south_labels(labels/N_CLASSES).floor()
+        opts = ns_classification_opts
+
+    orientation_type = "North-South"
+    learn_and_plot(model, x, y, model_type, orientation_type, opts)
+
+    #  Plot East-West orientation
+    if learn_type is REGRESSION:
+        y = east_west_labels(labels)
+        opts = ew_regression_opts
+    else:
+        y = east_west_labels(labels/N_CLASSES).floor()
+        opts = ew_classification_opts
+
+    orientation_type = "East-West"
+    learn_and_plot(model, x, y, model_type, orientation_type, opts)
+
 
 if __name__ == '__main__':
     parser, args = parse_args()
 
     #Machine Learning Models
-
-    if args.lasso:
-        model = linear_model.Lasso(max_iter=10000)
-        model_type = "LASSO"
-        bin_max = 180
-        bin_width = 5
-        learn_type = "Regression"
+    if args.all:
+        models_to_use = MODELS.keys()
+    elif args.lasso:
+        models_to_use = ('lasso',)
     elif args.ridge:
-        model = linear_model.Ridge()
-        model_type = "Ridge"
-        bin_max = 180
-        bin_width = 5
-        learn_type = "Regression"
+        models_to_use = ('ridge',)
     elif args.svm_rbf:
-        model = svm.SVC(kernel='rbf', gamma=0.7, C=1)
-        model_type = "SVM w RBF kernel"
-        bin_max = 30 
-        bin_width = 1
-        learn_type = "Classification"
+        models_to_use = ('svm_rbf',)
     elif args.svm_poly:
-        model = svm.SVC(kernel='poly', degree=3, C=1)
-        model_type = "SVM w polynomial kernel"
-        bin_max = 30
-        bin_width = 1
-        learn_type = "Classification"
+        models_to_use = ('svm_poly',)
     elif args.svm_lin:
-        model = svm.LinearSVC(C=1)
-        model_type = "SVM w linear kernel"
-        bin_max = 30
-        bin_width = 1
-        learn_type = "Classification"
+        models_to_use = ('svm_linear',)
     elif args.tree:
-        model = tree.DecisionTreeClassifier()
-        model_type = "Decision Tree"
-        bin_max = 30
-        bin_width = 1
-        learn_type = "Classification"
+        models_to_use = ('tree',)
     else:
         print "Must specify a learning type."
         parser.print_help()
         sys.exit(-1)
 
-    [images, labels] = load_images_labels(args.data)
-
-    # Plot North-South orientation 
-    old_labels = labels
-    orient_type = "North-South"
-    #labels = np.abs(np.abs(labels/12-180)-180).astype(int)
-    if learn_type is "Regression":
-        labels = np.degrees(np.arccos(np.cos(np.radians(labels)))).astype(int)
-    else:
-        labels = np.degrees(np.arccos(np.cos(np.radians(labels/12)))).astype(int)
-    learn_and_plot(model, labels, images, model_type, orient_type, bin_max, bin_width)
-    
-    #  Plot East-West orientation
-
-    orient_type = "East-West"
-    labels = old_labels
-    if learn_type is "Regression":
-        labels = np.degrees(np.arcsin(np.sin(np.radians(labels)))).astype(int)
-    else:
-        labels = np.degrees(np.arcsin(np.sin(np.radians(labels/12)))).astype(int)
-    learn_and_plot(model, labels, images, model_type, orient_type, bin_max, bin_width)
+    for model_type in models_to_use:
+        [images, labels] = load_images_labels(args.data)
+        x = compute_features(images)
+        run(x, MODELS[model_type], TITLES[model_type], TYPES[model_type])
