@@ -111,11 +111,15 @@ from a list of absolute image paths.
 
         marginal_lum = np.concatenate((thumb.sum(0), thumb.sum(1)))
         brightness_sums[idx, :] = marginal_lum
-
+    print ''
     return np.c_[features, brightness_sums]
 
 
 def learn_and_plot(model, x, y, model_type, orientation_type, options):
+    print "Learning {} from {} images with a {}.".format(orientation_type,
+                                                         len(y),
+                                                         model_type)
+
     scores = evaluate_learning(model, x, y)
     scores = np.sqrt(scores)
 
@@ -131,8 +135,6 @@ def evaluate_learning(model, x, y):
 other images.
 
     """
-    print "Learning north from {} images.".format(len(y))
-
     #######
     # Choose your cross-validation splitting strategy
     #######
@@ -170,29 +172,7 @@ def plot_model(model_type, orientation_type, labels, scores, options):
     plt.figure()
     plt.plot(scores, 'ro')
     plt.savefig('_'.join((model_type, orientation_type, 'plot.eps')))
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description='Learn headings from images.')
-    parser.add_argument('-data', nargs='+',
-                        help='Directories containing data')
-    parser.add_argument('--lasso', help='Run a LASSO regression',
-                        action='store_true')
-    parser.add_argument('--ridge', help='Run a Ridge regression',
-                        action='store_true')
-    parser.add_argument('--svm_rbf',
-                        help='Run SVM classifier with rbf kernel',
-                        action='store_true')
-    parser.add_argument('--svm_poly',
-                        help='Run SVM classifier with ploynomial kernel (3)',
-                        action='store_true')
-    parser.add_argument('--svm_lin', help='Run a Linear SVM classifier',
-                        action='store_true')
-    parser.add_argument('--tree', help='Run a Decision Tree classifier',
-                        action='store_true')
-    parser.add_argument('--all', help='Run all classifiers and regressions.',
-                        action='store_true')
-    return parser, parser.parse_args()
+    plt.close('all')
 
 
 def east_west_labels(labels):
@@ -229,8 +209,37 @@ def run(x, model, model_type, learn_type):
     learn_and_plot(model, x, y, model_type, orientation_type, opts)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Learn headings from images.')
+    parser.add_argument('-data', nargs='+',
+                        help='Directories containing data')
+    parser.add_argument('--lasso', help='Run a LASSO regression',
+                        action='store_true')
+    parser.add_argument('--ridge', help='Run a Ridge regression',
+                        action='store_true')
+    parser.add_argument('--svm_rbf',
+                        help='Run SVM classifier with rbf kernel',
+                        action='store_true')
+    parser.add_argument('--svm_poly',
+                        help='Run SVM classifier with ploynomial kernel (3)',
+                        action='store_true')
+    parser.add_argument('--svm_lin', help='Run a Linear SVM classifier',
+                        action='store_true')
+    parser.add_argument('--tree', help='Run a Decision Tree classifier',
+                        action='store_true')
+    parser.add_argument('--all', help='Run all classifiers and regressions.',
+                        action='store_true')
+    parser.add_argument('-outdir', help='Output directory for saved plots.',
+                        action='store', default='.')
+    return parser, parser.parse_args()
+
+
 if __name__ == '__main__':
     parser, args = parse_args()
+
+    if not os.path.isdir(args.outdir):
+        os.mkdir(args.outdir)
+    os.chdir(args.outdir)
 
     #Machine Learning Models
     if args.all:
@@ -252,7 +261,7 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit(-1)
 
+    [images, labels] = load_images_labels(args.data)
+    x = compute_features(images)
     for model_type in models_to_use:
-        [images, labels] = load_images_labels(args.data)
-        x = compute_features(images)
         run(x, MODELS[model_type], TITLES[model_type], TYPES[model_type])
