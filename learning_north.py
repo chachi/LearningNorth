@@ -112,8 +112,6 @@ from a list of absolute image paths.
         marginal_lum = np.concatenate((thumb.sum(0), thumb.sum(1)))
         brightness_sums[idx, :] = marginal_lum
 
-    print ""
-
     return np.c_[features, brightness_sums]
 
 
