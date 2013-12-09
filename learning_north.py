@@ -35,10 +35,10 @@ MODELS = {
 TITLES = {
     'lasso': 'LASSO',
     'ridge': 'Ridge',
-    'svm_rbf': 'SVM with RBF Kernel',
-    'svm_poly': 'SVM with Polynomial Kernel',
-    'svm_linear': 'Linear SVM',
-    'tree': 'Decision tree'
+    'svm_rbf': 'SVM_with_RBF_Kernel',
+    'svm_poly': 'SVM_with_Polynomial_Kernel',
+    'svm_linear': 'Linear_SVM',
+    'tree': 'Decision_tree'
 }
 
 TYPES = {
@@ -120,7 +120,7 @@ def learn_and_plot(model, x, y, model_type, orientation_type, options):
                                                          model_type)
 
     scores = evaluate_learning(model, x, y)
-    scores = scores % options.bin_max
+    scores = scores % (options.bin_max/2)
 
     plot_model(model_type, orientation_type, y, scores, options)
 
@@ -165,11 +165,16 @@ def plot_model(model_type, orientation_type, labels, scores, options):
 
     plt.figure()
     plt.bar(left=bins, height=avg_error, width=options.bin_width)
-    plt.title(model_type)
+    plt.xlabel('Label')
+    plt.ylabel('Mean error')
+
     plt.savefig('_'.join((model_type, orientation_type, 'bar.eps')))
 
     plt.figure()
     plt.plot(scores, 'ro')
+    plt.xlabel('Image Index')
+    plt.ylabel('Mean error')
+
     plt.savefig('_'.join((model_type, orientation_type, 'plot.eps')))
     plt.close('all')
 
