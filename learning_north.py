@@ -179,12 +179,12 @@ def plot_model(model_type, orientation_type, labels, scores, options):
 
 def east_west_labels(labels):
     """Takes 0-360 labels and returns -90-90"""
-    return np.degrees(np.arcsin(np.sin(np.radians(labels)))).astype(int)
+    return np.degrees(np.arcsin(np.sin(np.radians(labels))))
 
 
 def north_south_labels(labels):
     """Takes 0-360 labels and returns 0-180"""
-    return np.degrees(np.arccos(np.cos(np.radians(labels)))).astype(int)
+    return np.degrees(np.arccos(np.cos(np.radians(labels))))
 
 
 def run(x, model, model_type, learn_type):
@@ -193,7 +193,7 @@ def run(x, model, model_type, learn_type):
         y = north_south_labels(labels)
         opts = ns_regression_opts
     else:
-        y = np.floor(north_south_labels(labels)/CLASS_WIDTH)
+        y = np.floor(north_south_labels(labels)/CLASS_WIDTH).astype(int)
         opts = ns_classification_opts
 
     orientation_type = "North-South"
@@ -204,7 +204,7 @@ def run(x, model, model_type, learn_type):
         y = east_west_labels(labels)
         opts = ew_regression_opts
     else:
-        y = np.floor(east_west_labels(labels)/CLASS_WIDTH)
+        y = np.floor(east_west_labels(labels)/CLASS_WIDTH).astype(int)
         opts = ew_classification_opts
 
     orientation_type = "East-West"
