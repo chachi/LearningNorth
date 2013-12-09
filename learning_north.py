@@ -20,11 +20,8 @@ class LearningOptions:
 REGRESSION = "Regression"
 CLASSIFICATION = "Classification"
 
-ns_regression_opts = LearningOptions(0, 180, 5)
-ew_regression_opts = LearningOptions(-90, 90, 5)
-
-ns_classification_opts = LearningOptions(0, 30, 1)
-ew_classification_opts = LearningOptions(-15, 15, 1)
+regression_opts = LearningOptions(0, 360, 5)
+classification_opts = LearningOptions(0, 30, 1)
 
 MODELS = {
     'lasso': linear_model.Lasso(max_iter=10000),
@@ -123,7 +120,7 @@ def learn_and_plot(model, x, y, model_type, orientation_type, options):
                                                          model_type)
 
     scores = evaluate_learning(model, x, y)
-    scores = np.sqrt(scores)
+    scores = scores % options.bin_max
 
     plot_model(model_type, orientation_type, y, scores, options)
 
@@ -152,7 +149,7 @@ other images.
                                               scoring='mean_squared_error',
                                               n_jobs=-1,
                                               cv=fold_gen)
-    return -scores
+    return np.sqrt(-scores)
 
 
 def plot_model(model_type, orientation_type, labels, scores, options):
@@ -177,37 +174,15 @@ def plot_model(model_type, orientation_type, labels, scores, options):
     plt.close('all')
 
 
-def east_west_labels(labels):
-    """Takes 0-360 labels and returns -90-90"""
-    return np.degrees(np.arcsin(np.sin(np.radians(labels))))
-
-
-def north_south_labels(labels):
-    """Takes 0-360 labels and returns 0-180"""
-    return np.degrees(np.arccos(np.cos(np.radians(labels))))
-
-
 def run(x, model, model_type, learn_type):
-    # Plot North-South orientation
     if learn_type is REGRESSION:
-        y = north_south_labels(labels)
-        opts = ns_regression_opts
+        y = labels
+        opts = regression_opts
     else:
-        y = np.floor(north_south_labels(labels)/CLASS_WIDTH).astype(int)
-        opts = ns_classification_opts
+        y = np.floor(labels/CLASS_WIDTH).astype(int)
+        opts = classification_opts
 
-    orientation_type = "North-South"
-    learn_and_plot(model, x, y, model_type, orientation_type, opts)
-
-    #  Plot East-West orientation
-    if learn_type is REGRESSION:
-        y = east_west_labels(labels)
-        opts = ew_regression_opts
-    else:
-        y = np.floor(east_west_labels(labels)/CLASS_WIDTH).astype(int)
-        opts = ew_classification_opts
-
-    orientation_type = "East-West"
+    orientation_type = "heading"
     learn_and_plot(model, x, y, model_type, orientation_type, opts)
 
 
@@ -243,7 +218,7 @@ if __name__ == '__main__':
         os.mkdir(args.outdir)
     os.chdir(args.outdir)
 
-    #Machine Learning Models
+    # Machine Learning Models
     if args.all:
         models_to_use = MODELS.keys()
     elif args.lasso:
