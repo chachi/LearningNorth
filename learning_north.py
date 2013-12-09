@@ -55,7 +55,9 @@ TYPES = {
 
 
 N_FOLDS = 10
-N_CLASSES = 12
+
+# Degrees per class
+CLASS_WIDTH = 12
 
 
 def load_dir(dir_path):
@@ -191,7 +193,7 @@ def run(x, model, model_type, learn_type):
         y = north_south_labels(labels)
         opts = ns_regression_opts
     else:
-        y = np.floor(north_south_labels(labels/N_CLASSES))
+        y = np.floor(north_south_labels(labels)/CLASS_WIDTH)
         opts = ns_classification_opts
 
     orientation_type = "North-South"
@@ -202,7 +204,7 @@ def run(x, model, model_type, learn_type):
         y = east_west_labels(labels)
         opts = ew_regression_opts
     else:
-        y = np.floor(east_west_labels(labels/N_CLASSES))
+        y = np.floor(east_west_labels(labels)/CLASS_WIDTH)
         opts = ew_classification_opts
 
     orientation_type = "East-West"
